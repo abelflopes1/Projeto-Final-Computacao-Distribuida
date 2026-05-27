@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auth Service — :5001</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060f0a;
+    --surface: #0a1a0f;
+    --border: #0f2a18;
+    --accent: #00ff88;
+    --text: #c0f0d0;
+    --muted: #3a6a4a;
+    --err: #ff4466;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+  .badge { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); border: 1px solid #0f3a20; border-radius: 20px; padding: 0.3rem 0.8rem; margin-bottom: 1.5rem; }
+  h1 { font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800; margin-bottom: 0.4rem; color: #fff; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 0.78rem; margin-bottom: 2.5rem; text-align: center; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2rem; width: 100%; max-width: 420px; }
+  label { display: block; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.35rem; }
+  input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 0.65rem 0.9rem; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; margin-bottom: 1rem; outline: none; transition: border-color 0.2s; }
+  input:focus { border-color: var(--accent); }
+  button { width: 100%; padding: 0.8rem; background: var(--accent); color: #000; border: none; border-radius: 7px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; transition: transform 0.1s; }
+  button:active { transform: scale(0.98); }
+  .result { margin-top: 1.2rem; background: var(--bg); border-radius: 7px; padding: 0.9rem; font-size: 0.72rem; line-height: 1.8; border: 1px solid var(--border); display: none; white-space: pre-wrap; word-break: break-all; }
+  .result.show { display: block; }
+  .result.ok { color: var(--accent); border-color: #0f3a20; }
+  .result.err { color: var(--err); border-color: #3a0f18; }
+  .token-box { margin-top: 1rem; background: #0a1f10; border: 1px solid #0f4a20; border-radius: 7px; padding: 0.9rem; display: none; }
+  .token-box.show { display: block; }
+  .token-box label { color: var(--accent); margin-bottom: 0.4rem; }
+  .token-value { color: var(--accent); font-size: 0.85rem; font-weight: 700; word-break: break-all; }
+  .copy-btn { margin-top: 0.7rem; background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 0.72rem; padding: 0.45rem; border-radius: 6px; cursor: pointer; width: 100%; }
+  .hint { margin-top: 1rem; font-size: 0.68rem; color: var(--muted); text-align: center; }
+  .hint a { color: var(--accent); text-decoration: none; }
+  .log { margin-top: 1.5rem; font-size: 0.68rem; color: var(--muted); width: 100%; max-width: 420px; line-height: 1.9; }
+  .log .entry { display: flex; gap: 0.8rem; }
+  .log .ts { color: #0f3a20; min-width: 80px; }
+  .log .ok { color: var(--accent); }
+  .log .er { color: var(--err); }
+</style>
+</head>
+<body>
+
+<div class="badge">● Auth Service — porta 5001</div>
+<h1>Auth <span>Service</span></h1>
+<p class="subtitle">Faça login aqui e copie o token.<br>Depois acesse o Profile Service em localhost:5002.</p>
+
+<div class="card">
+  <label>Usuário</label>
+  <input id="u" value="admin" placeholder="admin ou usuario">
+
+  <label>Senha</label>
+  <input id="p" type="password" value="senha123" placeholder="senha123 ou 12345">
+
+  <button onclick="doLogin()">FAZER LOGIN →</button>
+
+  <div class="result" id="res"></div>
+
+  <div class="token-box" id="token-box">
+    <label>Token gerado — copie e leve para o :5002</label>
+    <div class="token-value" id="token-val"></div>
+    <button class="copy-btn" onclick="copyToken()">COPIAR TOKEN</button>
+  </div>
+
+  <p class="hint">Com o token em mãos, acesse → <a href="http://localhost:5002" target="_blank">localhost:5002</a></p>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+  let currentToken = '';
+
+  function addLog(msg, type='') {
+    const ts = new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('log').innerHTML +=
+      `<div class="entry"><span class="ts">${ts}</span><span class="${type}">${msg}</span></div>`;
+  }
+
+  async function doLogin() {
+    const u = document.getElementById('u').value;
+    const p = document.getElementById('p').value;
+    addLog(`POST /login → { username: "${u}" }`);
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+      const el = document.getElementById('res');
+      el.textContent = JSON.stringify(data, null, 2);
+      if (res.ok && data.token) {
+        el.className = 'result show ok';
+        currentToken = data.token;
+        document.getElementById('token-val').textContent = currentToken;
+        document.getElementById('token-box').className = 'token-box show';
+        addLog(`✓ Token gerado: ${currentToken}`, 'ok');
+      } else {
+        el.className = 'result show err';
+        addLog(`✗ Falha: ${data.erro}`, 'er');
+      }
+    } catch(e) {
+      addLog('✗ Erro de conexão', 'er');
+    }
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(currentToken).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✓ COPIADO!';
+      setTimeout(() => btn.textContent = 'COPIAR TOKEN', 2000);
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+
+  auth-service:
+    build:
+      context: ./auth_service
+    container_name: auth-service
+    ports:
+      - "5001:5001"
+    networks:
+      - microservices-net
+    restart: on-failure
+
+  profile-service:
+    build:
+      context: ./profile_service
+    container_name: profile-service
+    ports:
+      - "5002:5002"
+    networks:
+      - microservices-net
+    environment:
+      AUTH_SERVICE_URL: "http://auth-service:5001"
+    depends_on:
+      - auth-service
+    restart: on-failure
+
+networks:
+  microservices-net:
+    driver: bridge

@@ -1,15 +1,21 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 import time
 
 app = Flask(__name__)
+CORS(app)
 
-# Credenciais fixas e tokens válidos (simulação simples)
 USUARIOS_VALIDOS = {
     "admin": "senha123",
     "usuario": "12345"
 }
 
 TOKENS_VALIDOS = set()
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
 @app.route("/login", methods=["POST"])
